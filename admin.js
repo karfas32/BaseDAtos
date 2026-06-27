@@ -55,30 +55,11 @@ async function cargarSemanas() {
   try {
     const { data, error } = await window.supabaseClient
       .from('semanas')
-      .select('*')
+      .select('id, numero_semana, titulo, descripcion, publicado, ultima_modificacion')  // ← sin archivos_pdf
       .order('numero_semana', { ascending: true });
 
     if (error) throw error;
-
-    if (data && data.length > 0) {
-      estadoAdmin.semanas = data;
-    } else {
-      // Si no hay datos, crear semanas iniciales
-      await crearSemanasIniciales();
-      const { data: nuevasSemanas } = await window.supabaseClient
-        .from('semanas')
-        .select('*')
-        .order('numero_semana', { ascending: true });
-      estadoAdmin.semanas = nuevasSemanas || [];
-    }
-
-    renderizarDashboard();
-    renderizarTablaSemanas();
-  } catch (error) {
-    console.error("Error cargando semanas:", error);
-    mostrarToast("Error al cargar las semanas", "error");
-  }
-}
+    // ... resto igual
 
 async function crearSemanasIniciales() {
   const semanas = [];
@@ -233,30 +214,19 @@ function renderizarTablaSemanas() {
   });
 }
 
-function editarSemana(numero) {
-  const semana = estadoAdmin.semanas.find(s => s.numero_semana === numero);
-  if (!semana) return;
+async function editarSemana(numSemana) {
+  // Traer archivos_pdf solo para esta semana
+  const { data: semanaCompleta } = await window.supabaseClient
+    .from('semanas')
+    .select('archivos_pdf')
+    .eq('numero_semana', numSemana)
+    .single();
 
-  estadoAdmin.semanaEditando = numero;
-  const unidad = UNIDADES.find(u => u.semanas.includes(numero));
-  const etiqueta = unidad ? `${unidad.nombre} · Semana ${numero}` : `Semana ${numero}`;
-
-  actualizarValor("editorNumero", etiqueta);
-  actualizarValor("editorTitulo", semana.titulo || "");
-  actualizarValor("editorDescripcion", semana.descripcion || "");
-  actualizarValor("editorContenido", semana.contenido_html || "");
-
-  const subtituloEditor = document.getElementById("editorSubtitulo");
-  if (subtituloEditor && unidad) {
-    subtituloEditor.textContent = unidad.descripcion;
+  const semana = estadoAdmin.semanas.find(s => s.numero_semana === numSemana);
+  if (semana && semanaCompleta) {
+    semana.archivos_pdf = semanaCompleta.archivos_pdf || [];
   }
-
-  const checkPublicar = document.getElementById("editorPublicar");
-  if (checkPublicar) checkPublicar.checked = semana.publicado;
-
-  inicializarEditorPdf(semana);
-  mostrarVista("editor");
-}
+  // ... resto de la función igual
 
 async function guardarEditor() {
   const num = estadoAdmin.semanaEditando;
