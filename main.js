@@ -60,17 +60,9 @@ async function cargarSemanas() {
   try {
     const { data, error } = await window.supabaseClient
       .from('semanas')
-      .select('*')
+      .select('id, numero_semana, titulo, descripcion, publicado, ultima_modificacion')  // ← sin archivos_pdf
       .eq('publicado', true)
       .order('numero_semana', { ascending: true });
-
-    if (error) throw error;
-    estado.semanas = data || [];
-  } catch (error) {
-    console.error("Error cargando semanas:", error);
-    estado.semanas = [];
-  }
-}
 
 function renderizarNavbar() {
   const navUser = document.getElementById("navUser");
@@ -187,22 +179,23 @@ function actualizarProgresoUnidad(unidad) {
   else badge.classList.add("badge-success");
 }
 
-function mostrarDetalleSemana(semana) {
+async function mostrarDetalleSemana(semana) {
   if (!semana || !semana.publicado) return;
 
-  estado.semanaActiva = semana;
-  estado.vistaActual = "detalle";
+  // Traer contenido completo solo al abrir
+  const { data: semanaCompleta } = await window.supabaseClient
+    .from('semanas')
+    .select('contenido_html, archivos_pdf')
+    .eq('numero_semana', semana.numero_semana)
+    .single();
 
-  const grilla = document.getElementById("vistaGrid");
-  const detalle = document.getElementById("vistaDetalle");
-
-  if (grilla) grilla.classList.add("hidden");
-  if (detalle) {
-    detalle.classList.remove("hidden");
-    renderizarDetalle(semana);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  if (semanaCompleta) {
+    semana.contenido_html = semanaCompleta.contenido_html;
+    semana.archivos_pdf   = semanaCompleta.archivos_pdf || [];
   }
-}
+
+  estado.semanaActiva = semana;
+  // ... resto igual
 
 function renderizarDetalle(semana) {
   const titulo = document.getElementById("detalleTitulo");
